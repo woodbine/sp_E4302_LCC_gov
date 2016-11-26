@@ -85,7 +85,9 @@ def convert_mth_strings ( mth_string ):
 #### VARIABLES 1.0
 
 entity_id = "E4302_LCC_gov"
-url = "http://liverpool.gov.uk/council/performance-and-spending/budgets-and-finance/transparency-in-local-government/"
+urls = "https://www.liverpool.gov.uk/council/budgets-and-finance/transparency-in-local-government/transparency-in-local-government-archive/", \
+      "https://www.liverpool.gov.uk/council/budgets-and-finance/transparency-in-local-government/"
+url = "http://www.example.com"
 errors = 0
 data = []
 
@@ -96,19 +98,35 @@ soup = BeautifulSoup(html, 'lxml')
 
 #### SCRAPE DATA
 
-block = soup.find('div', attrs = {'class':'span8 bodyContent'})
-links = block.find_all('li')
-yRs = block.find_all('h3')
-for yR in yRs:
-    if 'February 2014' in yR.text:
-        url = 'http://liverpool.gov.uk' + yR.find_next('ul').find('li').a['href']
+for u in urls:
+    if 'archive' in u:
+        html = urllib2.urlopen(u)
+        soup = BeautifulSoup(html, 'lxml')
+        blocks = soup.find_all('ul', attrs = {'id':'documentList'})
+        for block in blocks:
+            links = block.find_all('li')
+            for link in links:
+                    url = link.a['href']
+                    if '.xls' in link.a['href'] or '.xlsx' in link.a['href']:
+                        title = link.a.text.split('report')[-1].strip()
+                        csvMth = title[:3]
+                        csvYr = title.split('(')[0].strip()[-4:]
+                        csvMth = convert_mth_strings(csvMth.upper())
+                        data.append([csvYr, csvMth, url])
     else:
-        url = 'http://liverpool.gov.uk' + yR.find_next('ul').find('li').find_next('li').a['href']
-    if '.xls' in url or '.xlsx' in url:
-        csvMth = yR.text.strip().split(' ')[0].strip()[:3]
-        csvYr = yR.text.strip().split(' ')[1].strip()
-        csvMth = convert_mth_strings(csvMth.upper())
-        data.append([csvYr, csvMth, url])
+        html = urllib2.urlopen(u)
+        soup = BeautifulSoup(html, 'lxml')
+        blocks = soup.find_all('ul', attrs={'id': 'documentList'})
+        for block in blocks:
+            links = block.find_all('li')
+            for link in links:
+                url = link.a['href']
+                if '.xls' in link.a['href'] or '.xlsx' in link.a['href']:
+                    title = link.a.text.split('report')[-1].strip()
+                    csvMth = title[:3]
+                    csvYr = title.split('(')[0].strip()[-4:]
+                    csvMth = convert_mth_strings(csvMth.upper())
+                    data.append([csvYr, csvMth, url])
 
 #### STORE DATA 1.0
 
@@ -121,7 +139,7 @@ for row in data:
     valid = validate(filename, file_url)
 
     if valid == True:
-        scraperwiki.sqlite.save(unique_keys=['l'], data={"l": file_url, "f": filename, "d": todays_date })
+        scraperwiki.sqlite.save(unique_keys=['f'], data={"l": file_url, "f": filename, "d": todays_date })
         print filename
     else:
         errors += 1
